@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Sistema de seguimiento de incentivos para representantes de Amstar en hoteles de Punta Cana">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Amstar Tracker">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <title>Incentives Tracker Amstar</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        #root {
+            width: 100%;
+            min-height: 100vh;
+        }
+        
+        /* Loading Screen */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        #loading.hidden {
+            display: none;
+        }
+        
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: white;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        /* Install Prompt */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        .install-prompt.show {
+            display: flex;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .install-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .install-content {
+            flex: 1;
+        }
+        
+        .install-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .install-text {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .install-buttons {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        .install-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .install-btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            color: white;
+        }
+        
+        .install-btn-secondary {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loader"></div>
+        <div class="loading-text">Cargando Amstar Tracker...</div>
+    </div>
+    
+    <!-- Install Prompt -->
+    <div id="installPrompt" class="install-prompt">
+        <div class="install-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        </div>
+        <div class="install-content">
+            <div class="install-title">Instalar App</div>
+            <div class="install-text">Accede más rápido desde tu pantalla de inicio</div>
+        </div>
+        <div class="install-buttons">
+            <button class="install-btn install-btn-secondary" onclick="dismissInstall()">Ahora no</button>
+            <button class="install-btn install-btn-primary" onclick="installApp()">Instalar</button>
+        </div>
+    </div>
+    
+    <!-- React App Root -->
+    <div id="root"></div>
+    
+    <!-- React and Dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        let deferredPrompt;
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registrado:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Error al registrar Service Worker:', error);
+                    });
+            });
+        }
+        
+        // PWA Install Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Show install prompt after 3 seconds
+            setTimeout(() => {
+                const prompt = document.getElementById('installPrompt');
+                if (prompt) {
+                    prompt.classList.add('show');
+                }
+            }, 3000);
+        });
+        
+        function installApp() {
+            const prompt = document.getElementById('installPrompt');
+            prompt.classList.remove('show');
+            
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('Usuario aceptó instalar');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+        
+        function dismissInstall() {
+            const prompt = document.getElementById('installPrompt');
+            prompt.classList.remove('show');
+            localStorage.setItem('installDismissed', 'true');
+        }
+        
+        // Check if already dismissed
+        if (localStorage.getItem('installDismissed')) {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+            });
+        }
+    </script>
+    
+    <!-- App Component -->
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect } = React;
+        const { DollarSign, TrendingUp, Award, RotateCcw, Plus, Minus, Edit, Trash2, Save, X, Settings, LogOut, Users } = lucide;
+        
+        const IncentivesTrackerAmstar = () => {
+          // Default tours
+          const defaultTours = [
+            { name: "Reef Explorer", price: 125.00, incentive: 0 },
+            { name: "Happy hour", price: 70.00, incentive: 0 },
+            { name: "Eco Park", price: 110.00, incentive: 0 },
+            { name: "Saona Reserve", price: 125.00, incentive: 0 },
+            { name: "Saona Regular", price: 80.00, incentive: 80.00 },
+            { name: "Saona Clasica (Alamos)", price: 105.00, incentive: 0 },
+            { name: "Bavaro Runners", price: 80.00, incentive: 0 },
+            { name: "Zip Line Bavaro Runners", price: 75.00, incentive: 0 },
+            { name: "Catalina Island (Alamos)", price: 100.00, incentive: 0 },
+            { name: "Santo Domingo City tour", price: 85.00, incentive: 0 },
+            { name: "Monky land", price: 60.00, incentive: 0 },
+            { name: "Monky land + Zip lLine", price: 100.00, incentive: 0 },
+            { name: "Jungle Buggy (Runners)", price: 120.00, incentive: 0 },
+            { name: "Jungle Buggies Combo (Runners)", price: 150.00, incentive: 0 },
+            { name: "Whale watching Waterall Limo + Bacardi", price: 145.00, incentive: 0 },
+            { name: "Wild Tiger Buggy", price: 99.00, incentive: 0 },
+            { name: "Scape Park Full Day Pack", price: 99.00, incentive: 0 },
+            { name: "Dolphin Explorer", price: 100.00, incentive: 0 },
+            { name: "BAP buggy VIP", price: 60.00, incentive: 60.00 },
+            { name: "BAP Polaris", price: 80.00, incentive: 0 },
+            { name: "BAP Combo with Buggies", price: 110.00, incentive: 0 },
+            { name: "BAP Combo with polaris", price: 160.00, incentive: 0 },
+            { name: "BAP Mega Combo with Buggies", price: 0.00, incentive: 0 },
+            { name: "BAP Mega Combo with Polaris", price: 0.00, incentive: 0 },
+            { name: "Ocean Spa", price: 115.00, incentive: 0 },
+            { name: "Sailing Splash", price: 100.00, incentive: 0 },
+            { name: "BAP Catamaran adventure", price: 0.00, incentive: 0 },
+            { name: "Triple Adventure", price: 0.00, incentive: 0 },
+            { name: "El Dorado Waterpark", price: 0.00, incentive: 0 },
+            { name: "Caribbean Pirates", price: 0.00, incentive: 0 },
+            { name: "Scape Park Juanillo VIP", price: 125.00, incentive: 0 },
+            { name: "La Hacienda", price: 0.00, incentive: 0 },
+            { name: "Catalina", price: 0.00, incentive: 0 },
+            { name: "Marinarium", price: 100.00, incentive: 0 }
+          ];
+
+          // Default hotels list (Punta Cana 2026)
+          const defaultHotels = [
+            "Dreams Onyx", "Dreams Macao", "Dreams Flora", "Dreams Royal Beach",
+            "Now Onyx", "Now Natura", "Now Larimar", "Now Garden",
+            "Secrets Cap Cana", "Secrets Royal Beach",
+            "Breathless Punta Cana",
+            "Excellence Punta Cana", "Excellence El Carmen",
+            "Hyatt Zilara Cap Cana", "Hyatt Ziva Cap Cana",
+            "Majestic Elegance Punta Cana", "Majestic Colonial Punta Cana", "Majestic Mirage Punta Cana",
+            "Barceló Bávaro Palace", "Barceló Bávaro Beach", "Occidental Punta Cana", "Occidental Caribe",
+            "Riu Palace Macao", "Riu Palace Bavaro", "Riu Palace Punta Cana", "Riu Bambu", "Riu Naiboa", "Riu Republica",
+            "Iberostar Selection Bavaro", "Iberostar Grand Bavaro", "Iberostar Waves Dominicana",
+            "Hard Rock Hotel & Casino Punta Cana",
+            "Grand Bahia Principe Bavaro", "Grand Bahia Principe Punta Cana", "Grand Bahia Principe Aquamarine", "Grand Bahia Principe Turquesa",
+            "Luxury Bahia Principe Fantasia", "Luxury Bahia Principe Ambar", "Luxury Bahia Principe Bouganville", "Luxury Bahia Principe Esmeralda",
+            "Royalton Punta Cana", "Royalton Bavaro", "Royalton Splash Punta Cana", "Hideaway at Royalton Punta Cana",
+            "Lopesan Costa Bavaro Resort", "Lopesan Splash Cove", "Lopesan Caoba Lagoon", "Lopesan Serenity Bay",
+            "Nickelodeon Hotels & Resorts Punta Cana",
+            "Meliá Caribe Beach Resort", "Meliá Punta Cana Beach Resort", "Garden Suites by Meliá",
+            "Paradisus Palma Real", "Paradisus Punta Cana", "The Reserve at Paradisus Palma Real", "The Reserve at Paradisus Punta Cana",
+            "TRS Turquesa Hotel", "TRS Cap Cana Hotel",
+            "Grand Palladium Bavaro Suites Resort & Spa", "Grand Palladium Punta Cana Resort & Spa", "Grand Palladium Palace Resort Spa & Casino",
+            "Moon Palace The Grand Punta Cana",
+            "Be Live Collection Punta Cana", "Be Live Collection Canoa",
+            "Ocean Blue & Sand", "Ocean El Faro",
+            "Impressive Punta Cana", "Impressive Premium Resort & Spa",
+            "Catalonia Bavaro Beach Golf & Casino Resort", "Catalonia Royal Bavaro",
+            "Sanctuary Cap Cana", "Eden Roc at Cap Cana", "Tortuga Bay Hotel", "Finest Punta Cana", "Alsol Luxury Village", "Zel Punta Cana",
+            "Chic Punta Cana", "Sensatori Resort Punta Cana",
+            "Emotions by Hodelpa", "Caribe Club Princess Beach Resort", "Vista Sol Punta Cana Beach Resort"
+          ];
+
+          // State declarations
+          const [isAuthenticated, setIsAuthenticated] = useState(false);
+          const [selectedHotel, setSelectedHotel] = useState(null);
+          const [currentUser, setCurrentUser] = useState(null);
+          const [loginForm, setLoginForm] = useState({ username: '', password: '', hotel: '' });
+          const [showRegister, setShowRegister] = useState(false);
+
+          const [hotels, setHotels] = useState(() => {
+            const saved = localStorage.getItem('amstar_hotels_list');
+            return saved ? JSON.parse(saved) : defaultHotels;
+          });
+          const [newHotelName, setNewHotelName] = useState('');
+          const [showHotelManager, setShowHotelManager] = useState(false);
+
+          const [tours, setTours] = useState([]);
+          const [salesCount, setSalesCount] = useState([]);
+          const [incentiveValue, setIncentiveValue] = useState(80.00);
+          
+          const [showSettings, setShowSettings] = useState(false);
+          const [editingTour, setEditingTour] = useState(null);
+          const [newTour, setNewTour] = useState({ name: '', price: 0, incentive: 0 });
+          const [editIncentiveValue, setEditIncentiveValue] = useState(80.00);
+
+          // Load data on mount
+          useEffect(() => {
+            const savedAuth = localStorage.getItem('amstar_auth');
+            const savedUser = localStorage.getItem('amstar_current_user');
+            const savedHotel = localStorage.getItem('amstar_selected_hotel');
+            
+            if (savedAuth && savedUser && savedHotel) {
+              setIsAuthenticated(true);
+              setCurrentUser(savedUser);
+              setSelectedHotel(savedHotel);
+              loadHotelData(savedHotel);
+            }
+            
+            // Hide loading screen
+            setTimeout(() => {
+              document.getElementById('loading').classList.add('hidden');
+            }, 1000);
+          }, []);
+
+          const loadHotelData = (hotel) => {
+            const key = `amstar_${hotel}_tours`;
+            const savedTours = localStorage.getItem(key);
+            const toursData = savedTours ? JSON.parse(savedTours) : defaultTours;
+            setTours(toursData);
+            
+            const savedCounts = localStorage.getItem(`amstar_${hotel}_counts`);
+            setSalesCount(savedCounts ? JSON.parse(savedCounts) : toursData.map(() => 0));
+            
+            const savedIncentive = localStorage.getItem(`amstar_${hotel}_incentive`);
+            const incentive = savedIncentive ? parseFloat(savedIncentive) : 80.00;
+            setIncentiveValue(incentive);
+            setEditIncentiveValue(incentive);
+          };
+
+          // Save effects
+          useEffect(() => {
+            if (selectedHotel && tours.length > 0) {
+              localStorage.setItem(`amstar_${selectedHotel}_tours`, JSON.stringify(tours));
+            }
+          }, [tours, selectedHotel]);
+
+          useEffect(() => {
+            if (selectedHotel && salesCount.length > 0) {
+              localStorage.setItem(`amstar_${selectedHotel}_counts`, JSON.stringify(salesCount));
+            }
+          }, [salesCount, selectedHotel]);
+
+          useEffect(() => {
+            if (selectedHotel) {
+              localStorage.setItem(`amstar_${selectedHotel}_incentive`, incentiveValue.toString());
+            }
+          }, [incentiveValue, selectedHotel]);
+
+          useEffect(() => {
+            localStorage.setItem('amstar_hotels_list', JSON.stringify(hotels));
+          }, [hotels]);
+
+          // Authentication
+          const handleLogin = () => {
+            if (loginForm.username && loginForm.password && loginForm.hotel) {
+              const users = JSON.parse(localStorage.getItem('amstar_users') || '{}');
+              const userKey = `${loginForm.username}_${loginForm.hotel}`;
+              
+              if (showRegister) {
+                users[userKey] = { password: loginForm.password, hotel: loginForm.hotel };
+                localStorage.setItem('amstar_users', JSON.stringify(users));
+              } else {
+                if (!users[userKey] || users[userKey].password !== loginForm.password) {
+                  alert('Usuario o contraseña incorrectos');
+                  return;
+                }
+              }
+              
+              setCurrentUser(loginForm.username);
+              setSelectedHotel(loginForm.hotel);
+              setIsAuthenticated(true);
+              localStorage.setItem('amstar_auth', 'true');
+              localStorage.setItem('amstar_current_user', loginForm.username);
+              localStorage.setItem('amstar_selected_hotel', loginForm.hotel);
+              loadHotelData(loginForm.hotel);
+            }
+          };
+
+          const handleLogout = () => {
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+            setSelectedHotel(null);
+            localStorage.removeItem('amstar_auth');
+            localStorage.removeItem('amstar_current_user');
+            localStorage.removeItem('amstar_selected_hotel');
+            setLoginForm({ username: '', password: '', hotel: '' });
+          };
+
+          // Hotel management
+          const addHotel = () => {
+            if (newHotelName.trim() && !hotels.includes(newHotelName.trim())) {
+              setHotels([...hotels, newHotelName.trim()].sort());
+              setNewHotelName('');
+              alert('Hotel agregado exitosamente');
+            } else if (hotels.includes(newHotelName.trim())) {
+              alert('Este hotel ya existe en la lista');
+            }
+          };
+
+          const deleteHotel = (hotelName) => {
+            if (window.confirm(`¿Estás seguro de eliminar "${hotelName}"?`)) {
+              setHotels(hotels.filter(h => h !== hotelName));
+              alert('Hotel eliminado exitosamente');
+            }
+          };
+
+          const resetHotelsToDefault = () => {
+            if (window.confirm('¿Restaurar la lista de hoteles a los valores por defecto?')) {
+              setHotels(defaultHotels);
+              alert('Lista de hoteles restaurada');
+            }
+          };
+
+          // Tour operations
+          const updateCount = (index, delta) => {
+            setSalesCount(prev => {
+              const newCounts = [...prev];
+              newCounts[index] = Math.max(0, newCounts[index] + delta);
+              return newCounts;
+            });
+          };
+
+          const addTour = () => {
+            if (newTour.name && newTour.price >= 0 && newTour.incentive >= 0) {
+              setTours([...tours, newTour]);
+              setSalesCount([...salesCount, 0]);
+              setNewTour({ name: '', price: 0, incentive: 0 });
+            }
+          };
+
+          const deleteTour = (index) => {
+            if (window.confirm('¿Estás seguro de eliminar este tour?')) {
+              setTours(tours.filter((_, i) => i !== index));
+              setSalesCount(salesCount.filter((_, i) => i !== index));
+            }
+          };
+
+          const saveIncentiveValue = () => {
+            setIncentiveValue(editIncentiveValue);
+            alert('Valor de incentivo actualizado');
+          };
+
+          const resetAll = () => {
+            if (window.confirm('¿Estás seguro de que quieres reiniciar todos los conteos?')) {
+              setSalesCount(tours.map(() => 0));
+            }
+          };
+
+          // Calculations
+          const totalSales = salesCount.reduce((acc, count, idx) => acc + count * (tours[idx]?.price || 0), 0);
+          const totalProducts = salesCount.reduce((acc, count) => acc + count, 0);
+          
+          const totalEarnedIncentives = salesCount.reduce((acc, count, idx) => {
+            const tour = tours[idx];
+            if (!tour) return acc;
+            const productIncentive = tour.incentive || 0;
+            return acc + (count * productIncentive);
+          }, 0);
+          
+          const milestoneIncentives = Math.floor(totalProducts / 20) * incentiveValue;
+          const totalIncentives = totalEarnedIncentives + milestoneIncentives;
+
+          // Render login screen
+          if (!isAuthenticated) {
+            return React.createElement('div', {
+              className: "min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4"
+            },
+              React.createElement('div', {
+                className: "bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"
+              },
+                React.createElement('div', { className: "text-center mb-8" },
+                  React.createElement(Award, { className: "mx-auto text-blue-600 mb-4", size: 64 }),
+                  React.createElement('h1', { className: "text-3xl font-bold text-gray-800" }, "Incentives Tracker Amstar"),
+                  React.createElement('p', { className: "text-gray-600 mt-2" }, showRegister ? 'Crear nueva cuenta' : 'Iniciar sesión')
+                ),
+                React.createElement('div', { className: "space-y-4" },
+                  React.createElement('div', null,
+                    React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-2" }, "Nombre"),
+                    React.createElement('input', {
+                      type: "text",
+                      value: loginForm.username,
+                      onChange: (e) => setLoginForm({...loginForm, username: e.target.value}),
+                      className: "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                      placeholder: "Tu nombre"
+                    })
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-2" }, "Contraseña"),
+                    React.createElement('input', {
+                      type: "password",
+                      value: loginForm.password,
+                      onChange: (e) => setLoginForm({...loginForm, password: e.target.value}),
+                      className: "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                      placeholder: "Tu contraseña"
+                    })
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-2" }, "Hotel"),
+                    React.createElement('select', {
+                      value: loginForm.hotel,
+                      onChange: (e) => setLoginForm({...loginForm, hotel: e.target.value}),
+                      className: "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    },
+                      React.createElement('option', { value: "" }, "Selecciona tu hotel"),
+                      hotels.map(hotel => React.createElement('option', { key: hotel, value: hotel }, hotel))
+                    )
+                  ),
+                  React.createElement('button', {
+                    onClick: handleLogin,
+                    className: "w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+                  }, showRegister ? 'Registrarse' : 'Iniciar Sesión'),
+                  React.createElement('button', {
+                    onClick: () => setShowRegister(!showRegister),
+                    className: "w-full text-blue-600 hover:text-blue-700 font-medium"
+                  }, showRegister ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate')
+                )
+              )
+            );
+          }
+
+          // Main app render (authenticated)
+          return React.createElement('div', {
+            className: "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4"
+          },
+            React.createElement('div', { className: "max-w-6xl mx-auto" },
+              // Header with stats
+              React.createElement('div', { className: "bg-white rounded-lg shadow-lg p-6 mb-6" },
+                React.createElement('div', { className: "flex items-center justify-between mb-4 flex-wrap gap-4" },
+                  React.createElement('div', null,
+                    React.createElement('h1', { className: "text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3" },
+                      React.createElement(Award, { className: "text-blue-600", size: 36 }),
+                      "Incentives Tracker Amstar"
+                    ),
+                    React.createElement('div', { className: "flex items-center gap-4 mt-2 text-sm text-gray-600" },
+                      React.createElement('span', { className: "flex items-center gap-1" },
+                        React.createElement(Users, { size: 16 }),
+                        currentUser
+                      ),
+                      React.createElement('span', null, "•"),
+                      React.createElement('span', null, selectedHotel)
+                    )
+                  ),
+                  React.createElement('div', { className: "flex gap-2 flex-wrap" },
+                    React.createElement('button', {
+                      onClick: () => setShowSettings(!showSettings),
+                      className: "flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                    },
+                      React.createElement(Settings, { size: 18 }),
+                      "Ajustes"
+                    ),
+                    React.createElement('button', {
+                      onClick: resetAll,
+                      className: "flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
+                    },
+                      React.createElement(RotateCcw, { size: 18 }),
+                      "Reiniciar"
+                    ),
+                    React.createElement('button', {
+                      onClick: handleLogout,
+                      className: "flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                    },
+                      React.createElement(LogOut, { size: 18 }),
+                      "Salir"
+                    )
+                  )
+                ),
+                // Stats cards
+                React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
+                  React.createElement('div', { className: "bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white" },
+                    React.createElement('div', { className: "flex items-center gap-3 mb-2" },
+                      React.createElement(DollarSign, { size: 24 }),
+                      React.createElement('span', { className: "text-sm opacity-90" }, "Ventas Totales")
+                    ),
+                    React.createElement('div', { className: "text-3xl font-bold" }, `$${totalSales.toFixed(2)}`)
+                  ),
+                  React.createElement('div', { className: "bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white" },
+                    React.createElement('div', { className: "flex items-center gap-3 mb-2" },
+                      React.createElement(Award, { size: 24 }),
+                      React.createElement('span', { className: "text-sm opacity-90" }, "Incentivos Ganados")
+                    ),
+                    React.createElement('div', { className: "text-3xl font-bold" }, `$${totalIncentives.toFixed(2)}`),
+                    React.createElement('div', { className: "text-xs opacity-90 mt-1" }, 
+                      `Productos: $${totalEarnedIncentives.toFixed(2)} + Milestone: $${milestoneIncentives.toFixed(2)}`
+                    )
+                  ),
+                  React.createElement('div', { className: "bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white" },
+                    React.createElement('div', { className: "flex items-center gap-3 mb-2" },
+                      React.createElement(TrendingUp, { size: 24 }),
+                      React.createElement('span', { className: "text-sm opacity-90" }, "Productos Vendidos")
+                    ),
+                    React.createElement('div', { className: "text-3xl font-bold" }, totalProducts)
+                  )
+                )
+              ),
+              
+              // Tours list (simplified for brevity - full implementation would include all tour items)
+              React.createElement('div', { className: "bg-white rounded-lg shadow-lg p-6" },
+                React.createElement('h2', { className: "text-2xl font-bold text-gray-800 mb-4" }, "Tours"),
+                React.createElement('div', { className: "space-y-2 max-h-[600px] overflow-y-auto" },
+                  tours.map((tour, index) => {
+                    const count = salesCount[index] || 0;
+                    return React.createElement('div', {
+                      key: index,
+                      className: "border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    },
+                      React.createElement('div', { className: "flex items-center justify-between flex-wrap gap-4" },
+                        React.createElement('div', { className: "flex-1" },
+                          React.createElement('div', { className: "font-semibold text-gray-800" }, tour.name),
+                          React.createElement('div', { className: "text-sm text-gray-600" },
+                            `Precio: $${tour.price.toFixed(2)}`,
+                            tour.incentive > 0 && React.createElement('span', { className: "ml-3 text-green-600 font-semibold" },
+                              ` 💰 +$${tour.incentive.toFixed(2)} por venta`
+                            )
+                          )
+                        ),
+                        React.createElement('div', { className: "flex items-center gap-4" },
+                          React.createElement('div', { className: "text-center" },
+                            React.createElement('div', { className: "text-2xl font-bold text-gray-800" }, count),
+                            React.createElement('div', { className: "text-xs text-gray-500" }, "vendidos")
+                          ),
+                          React.createElement('div', { className: "flex gap-2" },
+                            React.createElement('button', {
+                              onClick: () => setEditingTour(index),
+                              className: "w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                            }, React.createElement(Edit, { size: 18 })),
+                            React.createElement('button', {
+                              onClick: () => deleteTour(index),
+                              className: "w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                            }, React.createElement(Trash2, { size: 18 })),
+                            React.createElement('button', {
+                              onClick: () => updateCount(index, -1),
+                              disabled: count === 0,
+                              className: "w-10 h-10 flex items-center justify-center bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                            }, React.createElement(Minus, { size: 20 })),
+                            React.createElement('button', {
+                              onClick: () => updateCount(index, 1),
+                              className: "w-10 h-10 flex items-center justify-center bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                            }, React.createElement(Plus, { size: 20 }))
+                          )
+                        )
+                      )
+                    );
+                  })
+                )
+              ),
+              
+              // Incentive info
+              React.createElement('div', { className: "bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg shadow-lg p-6 mt-6 border-2 border-yellow-300" },
+                React.createElement('div', { className: "flex items-center gap-3 mb-3" },
+                  React.createElement(Award, { className: "text-yellow-600", size: 28 }),
+                  React.createElement('h3', { className: "text-xl font-bold text-gray-800" }, "Sistema de Incentivos")
+                ),
+                React.createElement('div', { className: "space-y-2" },
+                  React.createElement('p', { className: "text-gray-700" },
+                    "• Cada ",
+                    React.createElement('span', { className: "font-bold text-blue-600" }, "20 productos vendidos"),
+                    " en total: ",
+                    React.createElement('span', { className: "font-bold text-green-600" }, `$${incentiveValue.toFixed(2)}`)
+                  ),
+                  React.createElement('p', { className: "text-gray-700" },
+                    "• Tours con incentivos individuales se suman directamente al vender cada producto"
+                  ),
+                  React.createElement('div', { className: "mt-4 p-3 bg-white rounded-lg" },
+                    React.createElement('div', { className: "flex justify-between text-sm text-gray-600 mb-1" },
+                      React.createElement('span', null, "Progreso al próximo incentivo de milestone"),
+                      React.createElement('span', null, `${totalProducts % 20}/20`)
+                    ),
+                    React.createElement('div', { className: "w-full bg-gray-200 rounded-full h-3" },
+                      React.createElement('div', {
+                        className: "bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-300",
+                        style: { width: `${((totalProducts % 20) / 20 * 100)}%` }
+                      })
+                    )
+                  )
+                )
+              )
+            )
+          );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(IncentivesTrackerAmstar));
+        
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
